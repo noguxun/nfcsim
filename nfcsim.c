@@ -24,11 +24,23 @@
 #include <linux/seq_file.h>
 #include <linux/debugfs.h>
 
+/* http://www.linux-mtd.infradead.org/faq/nand.html */
+#if 0
 
 #define NFC_FIRST_ID_BYTE  0x98
 #define NFC_SECOND_ID_BYTE 0x39
 #define NFC_THIRD_ID_BYTE  0xFF /* No byte */
 #define NFC_FOURTH_ID_BYTE 0xFF /* No byte */
+
+#elif 1
+
+#define NFC_FIRST_ID_BYTE  0x20
+#define NFC_SECOND_ID_BYTE 0xaa
+#define NFC_THIRD_ID_BYTE  0x00
+#define NFC_FOURTH_ID_BYTE 0x15
+
+#endif
+
 
 /* After a command is input, the simulator goes to one of the following states */
 #define STATE_CMD_NONE         0x00000000 /* No command state */
@@ -463,6 +475,9 @@ static int __init nfc_init_module(void)
 	chip->ecc.size = 512;
 	chip->ecc.strength = 1;
 
+	/* subpage ecc write is not implemented */
+	chip->options |= NAND_NO_SUBPAGE_WRITE;
+
 	chip->ecc.read_page = nfc_read_page_hwecc;
 	chip->ecc.write_page = nfc_write_page_hwecc;
 	chip->waitfunc = nfc_waitfunc;
@@ -527,9 +542,11 @@ static int __init nfc_init_module(void)
 		goto exit;
 	}
 
-	PKL("bloc size is %d, pg num in block %d", nfc.geom.secsz, nfc.geom.pgsec);
 
 	retval = mtd_device_register(mtd, &(nfc.partition), 1);
+
+	PKL("pg size 0x%x, oob size 0x%x, block size %x, pg num in block %x",
+		nfc.geom.pgsz, nfc.geom.oobsz, nfc.geom.secsz, nfc.geom.pgsec);
 exit:
 	return retval;
 }
