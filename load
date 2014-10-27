@@ -1,0 +1,7 @@
+#!/bin/sh
+
+sudo modprobe nand
+sudo modprobe mtd
+sudo insmod nfcsim.ko
+
+
