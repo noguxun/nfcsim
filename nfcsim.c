@@ -24,8 +24,10 @@
 #include <linux/seq_file.h>
 #include <linux/debugfs.h>
 
-/* http://www.linux-mtd.infradead.org/faq/nand.html
+/*
  * Here we can set the parameter of nand meta data
+ * Nand layer will retrive meta data from nfc_meta_dev or
+ * decode meta data from READ ID response
  */
 #if 0
 
