@@ -67,11 +67,6 @@
 #define NFC_BUF_SIZE  ( 4096 + 1024 )
 
 
-static uint log            = 0;
-module_param(log,            uint, 0400);
-MODULE_PARM_DESC(log,            "Perform logging if not zero");
-
-
 union nfc_mem {
 	u_char *byte;    /* for byte access */
 	uint16_t *word;  /* for 16-bit word access */
