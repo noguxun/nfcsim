@@ -69,24 +69,6 @@ struct nand_flash_dev nfc_meta_dev[] = {
 #endif
 
 
-/* After a command is input, the simulator goes to one of the following states */
-#define STATE_CMD_NONE         0x00000000 /* No command state */
-#define STATE_CMD_READ0        0x00000001 /* read data from the beginning of page */
-#define STATE_CMD_READ1        0x00000002 /* read data from the second half of page */
-#define STATE_CMD_READSTART    0x00000003 /* read data second command (large page devices) */
-#define STATE_CMD_PAGEPROG     0x00000004 /* start page program */
-#define STATE_CMD_READOOB      0x00000005 /* read OOB area */
-#define STATE_CMD_ERASE1       0x00000006 /* sector erase first command */
-#define STATE_CMD_STATUS       0x00000007 /* read status */
-#define STATE_CMD_SEQIN        0x00000009 /* sequential data input */
-#define STATE_CMD_READID       0x0000000A /* read ID */
-#define STATE_CMD_ERASE2       0x0000000B /* sector erase second command */
-#define STATE_CMD_RESET        0x0000000C /* reset */
-#define STATE_CMD_RNDOUT       0x0000000D /* random output command */
-#define STATE_CMD_RNDOUTSTART  0x0000000E /* random output start command */
-#define STATE_CMD_MASK         0x0000000F /* command states mask */
-
-
 #define PK(fmt, args...)  printk(KERN_INFO "nfc: " fmt, ##args )
 #define PKL(fmt, args...) printk(KERN_INFO "nfc: " fmt "\n", ##args )
 
