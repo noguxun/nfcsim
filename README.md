@@ -14,8 +14,8 @@ HOW TO TEST
 * commands to make a ubi fs on mtd device and mount to a directory  
 sudo modprobe ubi mtd=0  
 sudo ubimkvol /dev/ubi0 -N ubifs-vol -m  
-sudo mkdir -p /mnt/ubifs  
-sudo mount -t ubifs /dev/ubi0_0 /mnt/ubifs  
+mkdir -p ~/mnt/ubifs  
+sudo mount -t ubifs /dev/ubi0_0 ~/mnt/ubifs  
 
 * commands to unload ubi modules  
 sudo umount /dev/ubi0_0  

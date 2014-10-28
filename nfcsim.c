@@ -24,7 +24,9 @@
 #include <linux/seq_file.h>
 #include <linux/debugfs.h>
 
-/* http://www.linux-mtd.infradead.org/faq/nand.html */
+/* http://www.linux-mtd.infradead.org/faq/nand.html
+ * Here we can set the parameter of nand meta data
+ */
 #if 0
 
 #define NFC_FIRST_ID_BYTE  0x98
@@ -32,12 +34,35 @@
 #define NFC_THIRD_ID_BYTE  0xFF /* No byte */
 #define NFC_FOURTH_ID_BYTE 0xFF /* No byte */
 
-#elif 1
+struct nand_flash_dev * nfc_meta_dev = NULL;
+
+#elif 0
 
 #define NFC_FIRST_ID_BYTE  0x20
 #define NFC_SECOND_ID_BYTE 0xaa
 #define NFC_THIRD_ID_BYTE  0x00
 #define NFC_FOURTH_ID_BYTE 0x15
+
+struct nand_flash_dev * nfc_meta_dev = NULL;
+
+#elif 1
+
+#define NFC_FIRST_ID_BYTE  0xff
+#define NFC_SECOND_ID_BYTE 0xcd
+#define NFC_THIRD_ID_BYTE  0xff
+#define NFC_FOURTH_ID_BYTE 0xff
+
+struct nand_flash_dev nfc_meta_dev[] = {
+	{
+		.name= "SIMULATOR",
+		{{.dev_id = NFC_SECOND_ID_BYTE }},
+		.pagesize = 4096,
+		.chipsize = 512,
+		.erasesize = 4096 * 64,
+		.options = 0,
+	},
+	{NULL}
+};
 
 #endif
 
@@ -396,6 +421,7 @@ static void nfc_cmdfunc(struct mtd_info *mtd, unsigned command,	int column, int 
 		dump_stack();
 	}
 
+
 	return;
 }
 
@@ -494,7 +520,7 @@ static int __init nfc_init_module(void)
 	 * scan nand identity, fill the meta data like page/oob size information
 	 * based on the info of device id
 	 */
-	retval = nand_scan_ident(mtd, 1, NULL);
+	retval = nand_scan_ident(mtd, 1, nfc_meta_dev );
 	if (retval) {
 		PKL("cannot scan NFC simulator device identity");
 		if (retval > 0)
@@ -540,8 +566,8 @@ static int __init nfc_init_module(void)
 
 	retval = mtd_device_register(mtd, &(nfc.partition), 1);
 
-	PKL("pg size 0x%x, oob size 0x%x, block size %x, pg num in block %x",
-		nfc.geom.pgsz, nfc.geom.oobsz, nfc.geom.secsz, nfc.geom.pgsec);
+	PKL("pg size 0x%x, oob size 0x%x, block size 0x%x, pg num in block 0x%x, size %dMB",
+		nfc.geom.pgsz, nfc.geom.oobsz, nfc.geom.secsz, nfc.geom.pgsec, (int)(nfc.geom.totsz/(1024*1024)));
 exit:
 	return retval;
 }
