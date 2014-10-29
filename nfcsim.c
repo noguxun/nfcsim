@@ -10,19 +10,9 @@
 #include <linux/math64.h>
 #include <linux/slab.h>
 #include <linux/errno.h>
-#include <linux/string.h>
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/nand.h>
-#include <linux/mtd/nand_bch.h>
 #include <linux/mtd/partitions.h>
-#include <linux/delay.h>
-#include <linux/list.h>
-#include <linux/random.h>
-#include <linux/sched.h>
-#include <linux/fs.h>
-#include <linux/pagemap.h>
-#include <linux/seq_file.h>
-#include <linux/debugfs.h>
 
 /*
  * Here we can set the parameter of nand meta data
@@ -167,17 +157,23 @@ static union nfc_mem* nfc_get_page_noalloc(uint pg_index)
 }
 
 
-static int nfc_read_page_hwecc(struct mtd_info *mtd, struct nand_chip *chip, uint8_t *buf, int oob_required, int page)
+static int nfc_read_page_hwecc(struct mtd_info *mtd, struct nand_chip *chip,
+				uint8_t *buf, int oob_required, int page)
 {
+	int ecc_failed = 0;
+	int ecc_corrected = 0;
+
 	if (page != nfc.regs.row) {
-		PKL("page number from CMD_READ0 is %d, but got %d", nfc.regs.row, page);
+		PKL("page number from CMD_READ0 is %d, but got %d",
+			nfc.regs.row, page);
 		dump_stack();
 		mtd->ecc_stats.failed++;
 		return 0;
 	}
 
 	if (nfc.regs.command != NAND_CMD_READ0) {
-		PKL("page number from CMD_READ0 is %d, but got %d", nfc.regs.row, page);
+		PKL("page number from CMD_READ0 is %d, but got %d",
+			nfc.regs.row, page);
 		dump_stack();
 		mtd->ecc_stats.failed++;
 		return 0;
@@ -188,14 +184,24 @@ static int nfc_read_page_hwecc(struct mtd_info *mtd, struct nand_chip *chip, uin
 		nfc.regs.num -= nfc.geom.oobsz;
 	}
 
-	PKL("read page hwecc, copying 0x%x bytes, oob_required %d", nfc.regs.num, oob_required);
+	PKL("read page hwecc, copying 0x%x bytes, oob_required %d",
+		nfc.regs.num, oob_required);
 
 	memcpy(buf, nfc.buf.byte, nfc.regs.num);
+
+	/* This part is important to report ecc situation to upper layer */
+	if (ecc_failed) {
+		mtd->ecc_stats.failed++;
+	}
+	else if (ecc_corrected) {
+		mtd->ecc_stats.corrected++;
+	}
 
 	return 0;
 }
 
-static int nfc_write_page_hwecc(struct mtd_info *mtd, struct nand_chip *chip, const uint8_t *buf, int oob_required)
+static int nfc_write_page_hwecc(struct mtd_info *mtd, struct nand_chip *chip,
+				const uint8_t *buf, int oob_required)
 {
 
 	if (nfc.regs.command != NAND_CMD_SEQIN) {
@@ -220,7 +226,8 @@ static int nfc_write_page_hwecc(struct mtd_info *mtd, struct nand_chip *chip, co
 
 static void nfc_write_buf(struct mtd_info *mtd, const uint8_t *buf, int len)
 {
-	PKL("write buf, len 0x%x, count 0x%x, num 0x%x", len, nfc.regs.count, nfc.regs.num);
+	PKL("write buf, len 0x%x, count 0x%x, num 0x%x",
+		len, nfc.regs.count, nfc.regs.num);
 
 	if (nfc.regs.command != NAND_CMD_SEQIN) {
 		dump_stack();
@@ -251,7 +258,8 @@ static void nfc_select_chip(struct mtd_info *mtd, int chip)
 	return;
 }
 
-static void nfc_cmdfunc(struct mtd_info *mtd, unsigned command,	int column, int page_addr)
+static void nfc_cmdfunc(struct mtd_info *mtd, unsigned command,	int column,
+			int page_addr)
 {
 	int i;
 	unsigned pre_command = nfc.regs.command;
@@ -292,7 +300,8 @@ static void nfc_cmdfunc(struct mtd_info *mtd, unsigned command,	int column, int 
 
 		nfc.regs.off = nfc.geom.pgsz;
 		nfc.regs.row = page_addr;
-		nfc.regs.num = nfc.geom.pgszoob - nfc.regs.off - nfc.regs.column;
+		nfc.regs.num =
+			nfc.geom.pgszoob - nfc.regs.off - nfc.regs.column;
 		nfc.regs.count = 0;
 		nfc.regs.column = 0;
 
@@ -307,14 +316,17 @@ static void nfc_cmdfunc(struct mtd_info *mtd, unsigned command,	int column, int 
 		PKL("CMD READ0 col 0x%x row 0x%x", column, page_addr);
 
 		nfc.regs.off = 0;
-		nfc.regs.num = nfc.geom.pgszoob - nfc.regs.column - nfc.regs.off;
+		nfc.regs.num =
+			nfc.geom.pgszoob - nfc.regs.column - nfc.regs.off;
 		nfc.regs.row = page_addr;
 		nfc.regs.count = 0;
 		nfc.regs.column = column;
 
 		pg = nfc_get_page(nfc.regs.row);
 
-		memcpy(nfc.buf.byte, pg->byte + nfc.regs.off + nfc.regs.column, nfc.regs.num);
+		memcpy(nfc.buf.byte,
+			pg->byte + nfc.regs.off + nfc.regs.column,
+			nfc.regs.num);
 	}
 	else if (command == NAND_CMD_ERASE1) {
 		PKL("CMD ERASE1");
@@ -333,10 +345,12 @@ static void nfc_cmdfunc(struct mtd_info *mtd, unsigned command,	int column, int 
 			nfc.regs.row -= (nfc.regs.row % nfc.geom.pgsec);
 		}
 
-		PKL("erase 0x%x pages from page 0x%x ", nfc.geom.pgsec, nfc.regs.row);
+		PKL("erase 0x%x pages from page 0x%x ",
+			nfc.geom.pgsec, nfc.regs.row);
 		/*
-		 * start to erase the block, we just free the memory if allocated
-		 * page is allocated at read, memory will be really erased by setting mem to 0xff
+		 * start to erase the block, we just free the memory if
+		 * allocated page is allocated at read, memory will be really
+		 * erased by setting mem to 0xff
 		 */
 		for (i = 0; i < nfc.geom.pgsec; i++ ) {
 			union nfc_mem *pg;
@@ -421,7 +435,8 @@ static uint8_t nfc_read_byte(struct mtd_info *mtd)
 	uint8_t outb = 0;
 
 	if (nfc.regs.count >= nfc.regs.num) {
-		PKL("read byte at index %d, out of range %d", nfc.regs.count, nfc.regs.num);
+		PKL("read byte at index %d, out of range %d",
+			nfc.regs.count, nfc.regs.num);
 		outb = 0xff;
 		return outb;
 	}
@@ -439,7 +454,8 @@ static void nfc_read_buf(struct mtd_info *mtd, uint8_t *buf, int len)
 	PKL("read buf, len 0x%x", len);
 
 	if(nfc.regs.count + len > nfc.regs.num) {
-		PKL("read out of the boundary: %d, %d", nfc.regs.count, nfc.regs.num);
+		PKL("read out of the boundary: %d, %d",
+			nfc.regs.count, nfc.regs.num);
 		return;
 	}
 
@@ -475,10 +491,6 @@ static int __init nfc_init_module(void)
 	mtd->priv = chip;
 	mtd->owner = THIS_MODULE;
 
-	chip->ecc.mode = NAND_ECC_HW;
-	/* What is the proper value? Need to be set? */
-	chip->ecc.size = 512;
-	chip->ecc.strength = 1;
 
 	/* subpage ecc write is not implemented */
 	chip->options |= NAND_NO_SUBPAGE_WRITE;
@@ -492,7 +504,8 @@ static int __init nfc_init_module(void)
 	chip->read_byte = nfc_read_byte;
 	chip->read_buf = nfc_read_buf;
 	chip->write_buf = nfc_write_buf;
-	/* needed for nand scan  */
+
+	/* needed chip buffer for nand scan, which send READ ID command*/
 	nfc.buf.byte = kmalloc(NFC_BUF_SIZE, GFP_KERNEL);
 	if (!nfc.buf.byte) {
 		PKL("unable to allocate chip buf\n");
@@ -519,6 +532,11 @@ static int __init nfc_init_module(void)
 	nfc.geom.pgnum = div_u64(nfc.geom.totsz, nfc.geom.pgsz);
 	nfc.geom.secsz = mtd->erasesize;
 	nfc.geom.pgsec = nfc.geom.secsz / nfc.geom.pgsz;
+
+	/* set ecc to HW mode */
+	chip->ecc.mode = NAND_ECC_HW;
+	chip->ecc.size = nfc.geom.pgsz;
+	chip->ecc.strength = 1;
 
 	nfc.pages = vmalloc(nfc.geom.pgnum * sizeof(union nfc_mem));
 	if (!nfc.pages) {
@@ -550,8 +568,10 @@ static int __init nfc_init_module(void)
 
 	retval = mtd_device_register(mtd, &(nfc.partition), 1);
 
-	PKL("pg size 0x%x, oob size 0x%x, block size 0x%x, pg num in block 0x%x, size %dMB",
-		nfc.geom.pgsz, nfc.geom.oobsz, nfc.geom.secsz, nfc.geom.pgsec, (int)(nfc.geom.totsz/(1024*1024)));
+	PKL("pg size 0x%x, oob size 0x%x, block size 0x%x,"
+		"pg num in block 0x%x, size %dMB",
+		nfc.geom.pgsz, nfc.geom.oobsz, nfc.geom.secsz, nfc.geom.pgsec,
+		(int)(nfc.geom.totsz/(1024*1024)));
 exit:
 	return retval;
 }
@@ -582,4 +602,4 @@ module_exit(nfc_cleanup_module);
 
 MODULE_LICENSE ("GPL");
 MODULE_AUTHOR ("Xun Gu");
-MODULE_DESCRIPTION ("The NAND flash controller simulator");
+MODULE_DESCRIPTION ("The NAND Flash Controller Simulator");
